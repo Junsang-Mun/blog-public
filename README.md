@@ -217,7 +217,7 @@ Please be noticed that the bundeled font `42dotSans` is licensed under Open Font
 
 For any questions or issues, please contact the repository owner at:
 
-- **Email**: [mailto:iam@junsang.dev](iam@junsang.dev)
+- **Email**: [iam@junsang.dev](iam@junsang.dev)
 
 ---
 
