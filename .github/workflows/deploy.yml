@@ -1,0 +1,98 @@
+name: Deploy to VM
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: Deploy
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env.production file
+        run: |
+          echo "VITE_REDIRECT_URI=${{ secrets.ENV_VITE_REDIRECT_URI }}" >> .env.production
+          echo "VITE_GITHUB_CLIENT_SECRET=${{ secrets.ENV_VITE_GITHUB_CLIENT_SECRET }}" >> .env.production
+          echo "VITE_GITHUB_CLIENT_ID=${{ secrets.ENV_VITE_GITHUB_CLIENT_ID }}" >> .env.production
+          echo "VITE_ADMIN_EMAIL=${{ secrets.ENV_VITE_ADMIN_EMAIL }}" >> .env.production
+
+      - name: Build application
+        run: npm run build
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          # Add server to known_hosts
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+          # Test SSH connection
+          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "echo 'SSH connection successful'"
+
+      - name: Create deployment directories
+        run: |
+          ssh ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "mkdir -p ~/blog/prisma ~/backups"
+
+      - name: Backup database if exists
+        run: |
+          ssh ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "if [ -f ~/blog/prisma/post.db ]; then cp ~/blog/prisma/post.db ~/backups/post_backup_\$(date +%Y%m%d_%H%M%S).db; fi"
+
+      - name: Deploy files with rsync
+        run: |
+          rsync -avz --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='prisma/post.db' ./ ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:~/blog/
+
+      - name: Run post-deployment commands
+        run: |
+          ssh ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
+            # Load environment
+            source ~/.profile
+            source ~/.bashrc
+            export NVM_DIR=\"\$HOME/.nvm\"
+            [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"
+
+            # Ensure SQLite DB exists
+            touch ~/blog/prisma/post.db
+            chmod 644 ~/blog/prisma/post.db
+
+            # Navigate to app directory
+            cd ~/blog
+
+            # Install production dependencies
+            echo 'Installing dependencies...'
+            npm install --omit=dev
+
+            # Generate Prisma client
+            echo 'Generating Prisma client...'
+            npx prisma generate
+
+            # Run migrations
+            echo 'Running database migrations...'
+            npx prisma migrate deploy
+
+            # Restart app with PM2
+            echo 'Starting application with PM2...'
+            pm2 delete blog || true
+            pm2 start build/index.js --name 'blog'
+            pm2 save
+
+            echo 'Deployment completed!'
+          "

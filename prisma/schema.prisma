@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./post.db"
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String?
+  tags      String   @default("[]") // Stored as JSON string
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+}
+
+// New model for visitor logs
+model VisitorLog {
+  id        Int      @id @default(autoincrement())
+  ipAddress String
+  userAgent String?
+  path      String
+  referrer  String?
+  visitedAt DateTime @default(now())
+}

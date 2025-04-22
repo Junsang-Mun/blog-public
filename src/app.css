@@ -1,0 +1,48 @@
+@import url("https://fonts.googleapis.com/css2?family=42dot+Sans:wght@300..800&display=swap");
+@import "tailwindcss";
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+@theme {
+    --font-sans: "42dot Sans", "sans-serif";
+}
+
+/* COLOR THEME EXPLAINED
+ ********** BACKGROUDS **********
+ * Default: bg-zinc-900
+ * Card: bg-zinc-800
+
+ ********** TEXTS **********
+ * Default: text-zinc-100
+ * Muted: text-zinc-400
+
+ ********** ACCENTS **********
+ * Default: cyan-400
+ * Accent: cyan-300
+
+ */
+
+@supports (scrollbar-color: auto) {
+    * {
+        scrollbar-color: #155e75 transparent;
+    }
+}
+
+@supports selector(::-webkit-scrollbar) {
+    *::-webkit-scrollbar {
+        background: transparent;
+    }
+    *::-webkit-scrollbar-thumb {
+        background: #155e75;
+    }
+}
+
+::selection {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+::-moz-selection {
+    background-color: #ffffff;
+    color: #000000;
+}
